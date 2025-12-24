@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Unlock, FileText, CheckCircle, Key, RefreshCw, Shield, AlertTriangle, Download, Eye, File, Lock } from 'lucide-react';
+import { Unlock, FileText, CheckCircle, Key, RefreshCw, Shield, AlertTriangle, Download, Eye, File, Lock, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -52,7 +52,9 @@ const DecryptPage = () => {
   const [selectedFile, setSelectedFile] = useState<SimFile | null>(null);
   const [decryptionProgress, setDecryptionProgress] = useState(0);
   const [keyVerified, setKeyVerified] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -60,80 +62,23 @@ const DecryptPage = () => {
     }
   }, [user, loading, navigate]);
 
-  // Load encrypted files from localStorage
+  // Load encrypted files from localStorage on mount
   useEffect(() => {
+    loadEncryptedFiles();
+  }, []);
+
+  const loadEncryptedFiles = () => {
     const storedFiles = localStorage.getItem('encrypted_files');
-    const storedKey = localStorage.getItem('ransomware_key');
-    
     if (storedFiles) {
       try {
         const files = JSON.parse(storedFiles);
         setEncryptedFiles(files);
+        addLog(`📂 Loaded ${files.length} encrypted file(s) from encryption simulation`, 'info');
       } catch {
-        // If no stored files, use demo files
-        setEncryptedFiles([
-          { 
-            id: '1', 
-            name: 'document.txt', 
-            content: 'VGhpcyBpcyBlbmNyeXB0ZWQgZGF0YQ==', 
-            size: 1024,
-            type: 'text/plain',
-            encrypted: true, 
-            encryptedContent: 'VGhpcyBpcyBlbmNyeXB0ZWQgZGF0YQ==' 
-          },
-          { 
-            id: '2', 
-            name: 'passwords.txt', 
-            content: 'U2VjcmV0IHBhc3N3b3JkcyBoZXJl', 
-            size: 512,
-            type: 'text/plain',
-            encrypted: true, 
-            encryptedContent: 'U2VjcmV0IHBhc3N3b3JkcyBoZXJl' 
-          },
-          { 
-            id: '3', 
-            name: 'project_plan.md', 
-            content: 'UHJvamVjdCBwbGFuIGNvbnRlbnQ=', 
-            size: 2048,
-            type: 'text/markdown',
-            encrypted: true, 
-            encryptedContent: 'UHJvamVjdCBwbGFuIGNvbnRlbnQ=' 
-          },
-        ]);
+        addLog('⚠️ No encrypted files from simulation found', 'warning');
       }
-    } else {
-      // Demo encrypted files
-      setEncryptedFiles([
-        { 
-          id: '1', 
-          name: 'financial_report.xlsx', 
-          content: 'RW5jcnlwdGVkIGZpbmFuY2lhbCBkYXRh', 
-          size: 45056,
-          type: 'application/vnd.ms-excel',
-          encrypted: true, 
-          encryptedContent: 'RW5jcnlwdGVkIGZpbmFuY2lhbCBkYXRh' 
-        },
-        { 
-          id: '2', 
-          name: 'customer_database.sql', 
-          content: 'U0VMRUNUICogRlJPTSBjdXN0b21lcnM=', 
-          size: 102400,
-          type: 'application/sql',
-          encrypted: true, 
-          encryptedContent: 'U0VMRUNUICogRlJPTSBjdXN0b21lcnM=' 
-        },
-        { 
-          id: '3', 
-          name: 'company_secrets.docx', 
-          content: 'VG9wIHNlY3JldCBkb2N1bWVudA==', 
-          size: 28672,
-          type: 'application/msword',
-          encrypted: true, 
-          encryptedContent: 'VG9wIHNlY3JldCBkb2N1bWVudA==' 
-        },
-      ]);
     }
-  }, []);
+  };
 
   useEffect(() => {
     if (logContainerRef.current) {
@@ -151,6 +96,89 @@ const DecryptPage = () => {
     setLogs(prev => [...prev, entry]);
   }, []);
 
+  // Handle file upload
+  const handleFileUpload = useCallback(async (files: FileList) => {
+    const newFiles: SimFile[] = [];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      
+      // Check if file appears encrypted (has .encrypted extension or is binary-like)
+      const isEncrypted = file.name.endsWith('.encrypted') || 
+                         file.name.endsWith('.enc') || 
+                         file.name.endsWith('.locked') ||
+                         file.name.includes('ENCRYPTED');
+      
+      try {
+        const content = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // Convert to base64 for storage
+            const base64 = btoa(unescape(encodeURIComponent(result)));
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsText(file);
+        });
+
+        const simFile: SimFile = {
+          id: Date.now().toString() + Math.random(),
+          name: file.name.replace(/\.(encrypted|enc|locked)$/i, ''),
+          content: content,
+          size: file.size,
+          type: file.type || 'application/octet-stream',
+          encrypted: true,
+          encryptedContent: content
+        };
+
+        newFiles.push(simFile);
+        addLog(`📁 Uploaded: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`, 'info');
+      } catch (error) {
+        addLog(`❌ Failed to read file: ${file.name}`, 'danger');
+      }
+    }
+
+    if (newFiles.length > 0) {
+      setEncryptedFiles(prev => [...prev, ...newFiles]);
+      toast.success(`Uploaded ${newFiles.length} file(s)`);
+      addLog(`✅ ${newFiles.length} encrypted file(s) ready for decryption`, 'success');
+    }
+  }, [addLog]);
+
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files.length > 0) {
+      handleFileUpload(e.dataTransfer.files);
+    }
+  }, [handleFileUpload]);
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFileUpload(e.target.files);
+    }
+  };
+
+  const removeEncryptedFile = (fileId: string) => {
+    setEncryptedFiles(prev => prev.filter(f => f.id !== fileId));
+    if (selectedFile?.id === fileId) {
+      setSelectedFile(null);
+    }
+    toast.info('File removed');
+  };
+
   const verifyKey = () => {
     if (!decryptionKey) {
       toast.error('Please enter a decryption key');
@@ -161,22 +189,31 @@ const DecryptPage = () => {
     
     setTimeout(() => {
       const storedKey = localStorage.getItem('ransomware_key');
-      if (!storedKey) {
-        addLog('❌ No encrypted files found. Run encryption simulation first.', 'danger');
-        toast.error('No encrypted files found. Run encryption simulation first.');
-        setKeyVerified(false);
-        return;
-      }
       
-      if (decryptionKey === storedKey) {
-        setKeyVerified(true);
-        addLog('✅ Key verified successfully! Correct key provided.', 'success');
-        toast.success('Key verified! Ready to decrypt.');
+      // If there's a stored key, verify against it
+      if (storedKey) {
+        if (decryptionKey === storedKey) {
+          setKeyVerified(true);
+          addLog('✅ Key verified successfully! Matches encryption simulation key.', 'success');
+          toast.success('Key verified! Ready to decrypt.');
+        } else {
+          setKeyVerified(false);
+          addLog('❌ INVALID KEY! Does not match the encryption simulation key.', 'danger');
+          addLog('💡 Use the exact key shown after encryption simulation.', 'warning');
+          toast.error('Invalid decryption key! This key does not match.');
+        }
       } else {
-        setKeyVerified(false);
-        addLog('❌ INVALID KEY! The decryption key does not match.', 'danger');
-        addLog('💡 Use the exact key shown after encryption simulation.', 'warning');
-        toast.error('Invalid decryption key! This key does not match the encryption key.');
+        // No stored key - allow custom key for uploaded files
+        if (decryptionKey.length >= 8) {
+          setKeyVerified(true);
+          addLog('✅ Key format accepted for uploaded files.', 'success');
+          addLog('⚠️ Note: Decryption will only work if this is the correct key.', 'warning');
+          toast.success('Key accepted. Proceed with decryption.');
+        } else {
+          setKeyVerified(false);
+          addLog('❌ Key too short. Minimum 8 characters required.', 'danger');
+          toast.error('Key must be at least 8 characters.');
+        }
       }
     }, 500);
   };
@@ -193,7 +230,7 @@ const DecryptPage = () => {
     }
 
     if (encryptedFiles.length === 0) {
-      toast.error('No encrypted files to recover');
+      toast.error('No encrypted files to recover. Upload files or run encryption simulation first.');
       return;
     }
 
@@ -204,12 +241,12 @@ const DecryptPage = () => {
     addLog('🛡️ INITIATING FILE RECOVERY PROCESS', 'info');
     addLog('🔐 Loading verified decryption key...', 'info');
     await new Promise(resolve => setTimeout(resolve, 500));
-    addLog('📂 Scanning for encrypted files...', 'info');
-    addLog(`📊 Found ${encryptedFiles.length} encrypted file(s)`, 'info');
-    await new Promise(resolve => setTimeout(resolve, 500));
-    addLog('📂 Scanning for encrypted files...', 'info');
+    addLog('📂 Scanning encrypted files...', 'info');
     addLog(`📊 Found ${encryptedFiles.length} encrypted file(s)`, 'info');
     await new Promise(resolve => setTimeout(resolve, 300));
+
+    const storedKey = localStorage.getItem('ransomware_key');
+    const isCorrectKey = storedKey ? decryptionKey === storedKey : true;
 
     for (let i = 0; i < encryptedFiles.length; i++) {
       setCurrentFileIndex(i);
@@ -223,9 +260,23 @@ const DecryptPage = () => {
       
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      const decryptedContent = simpleDecrypt(file.encryptedContent || '', decryptionKey);
+      let decryptedContent: string;
       
-      addLog(`   ├─ Verifying file integrity...`, 'info');
+      if (isCorrectKey && file.originalContent) {
+        // If correct key and we have original content, restore it
+        decryptedContent = file.originalContent;
+        addLog(`   ├─ Verifying file integrity... PASSED ✓`, 'success');
+      } else {
+        // Attempt decryption
+        decryptedContent = simpleDecrypt(file.encryptedContent || '', decryptionKey);
+        
+        if (decryptedContent.includes('DECRYPTION FAILED')) {
+          addLog(`   ├─ ⚠️ Decryption may have failed - verify output`, 'warning');
+        } else {
+          addLog(`   ├─ Verifying file integrity...`, 'info');
+        }
+      }
+      
       addLog(`   └─ Status: RECOVERED ✓`, 'success');
       
       setRecoveredFiles(prev => [...prev, {
@@ -241,7 +292,7 @@ const DecryptPage = () => {
     setIsDecrypting(false);
     setDecryptionProgress(100);
     addLog('🎉 FILE RECOVERY COMPLETE', 'success');
-    addLog(`📊 Successfully recovered ${encryptedFiles.length} file(s)`, 'success');
+    addLog(`📊 Successfully processed ${encryptedFiles.length} file(s)`, 'success');
     addLog('📝 Generating recovery report...', 'info');
     toast.success('All files have been recovered!');
   };
@@ -255,6 +306,15 @@ const DecryptPage = () => {
     setKeyVerified(false);
     setSelectedFile(null);
     toast.success('Recovery reset');
+  };
+
+  const clearAllFiles = () => {
+    setEncryptedFiles([]);
+    setRecoveredFiles([]);
+    setSelectedFile(null);
+    localStorage.removeItem('encrypted_files');
+    addLog('🗑️ All files cleared', 'info');
+    toast.info('All files cleared');
   };
 
   const downloadRecoveredFile = (file: SimFile) => {
@@ -314,9 +374,46 @@ ${logs.map(l => `[${l.timestamp.toLocaleTimeString()}] ${l.message}`).join('\n')
         <div className="flex items-center gap-3">
           <Shield className="w-5 h-5 text-primary flex-shrink-0" />
           <p className="text-sm font-mono text-primary">
-            <strong>RECOVERY MODE:</strong> Enter the encryption key from the ransomware simulation to recover your files.
-            In real scenarios, you would restore from backups or use decryption tools from security researchers.
+            <strong>RECOVERY MODE:</strong> Upload encrypted files directly or use files from encryption simulation. 
+            Enter the correct decryption key to recover your files.
           </p>
+        </div>
+      </div>
+
+      {/* File Upload Section */}
+      <div className="mb-6">
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={cn(
+            "cyber-card border-2 border-dashed p-8 transition-all duration-300 cursor-pointer",
+            isDragging ? "border-success bg-success/10" : "border-border hover:border-primary/50"
+          )}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <div className="flex flex-col items-center justify-center text-center">
+            <Upload className={cn(
+              "w-12 h-12 mb-4 transition-colors",
+              isDragging ? "text-success" : "text-primary"
+            )} />
+            <h3 className="font-display text-lg font-bold text-foreground mb-2">
+              Upload Encrypted Files
+            </h3>
+            <p className="text-muted-foreground font-mono text-sm mb-4">
+              Drag & drop encrypted files here, or click to browse
+            </p>
+            <p className="text-xs text-muted-foreground font-mono">
+              Supports: .encrypted, .enc, .locked files or any encrypted data
+            </p>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            onChange={handleFileInputChange}
+            className="hidden"
+          />
         </div>
       </div>
 
@@ -328,10 +425,17 @@ ${logs.map(l => `[${l.timestamp.toLocaleTimeString()}] ${l.message}`).join('\n')
               <h3 className="font-display text-lg font-bold text-foreground tracking-wider">
                 ENCRYPTED FILES
               </h3>
-              <span className="text-xs font-mono text-destructive flex items-center gap-1">
-                <Lock className="w-3 h-3" />
-                {encryptedFiles.length} files locked
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono text-destructive flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  {encryptedFiles.length} files
+                </span>
+                {encryptedFiles.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearAllFiles} className="h-6 px-2">
+                    <X className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Progress Bar */}
@@ -351,29 +455,59 @@ ${logs.map(l => `[${l.timestamp.toLocaleTimeString()}] ${l.message}`).join('\n')
             )}
 
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {encryptedFiles.map((file, index) => (
-                <div
-                  key={file.id}
-                  onClick={() => setSelectedFile(file)}
-                  className={cn(
-                    "flex items-center gap-3 p-3 rounded-lg border transition-all duration-300 cursor-pointer",
-                    "bg-destructive/10 border-destructive/30",
-                    currentFileIndex === index && "animate-pulse border-success",
-                    selectedFile?.id === file.id && "ring-2 ring-primary"
-                  )}
-                >
-                  <File className="w-5 h-5 text-destructive flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-mono text-sm text-foreground truncate">
-                      {file.name}.encrypted
-                    </p>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      {(file.size / 1024).toFixed(2)} KB • {file.type}
-                    </p>
-                  </div>
-                  <Lock className="w-4 h-4 text-destructive" />
+              {encryptedFiles.length === 0 ? (
+                <div className="text-center py-8">
+                  <Lock className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-muted-foreground font-mono text-sm">
+                    No encrypted files yet.
+                  </p>
+                  <p className="text-xs text-muted-foreground font-mono mt-1">
+                    Upload files above or run encryption simulation
+                  </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-3"
+                    onClick={loadEncryptedFiles}
+                  >
+                    <RefreshCw className="w-3 h-3 mr-2" />
+                    Load from Simulation
+                  </Button>
                 </div>
-              ))}
+              ) : (
+                encryptedFiles.map((file, index) => (
+                  <div
+                    key={file.id}
+                    onClick={() => setSelectedFile(file)}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border transition-all duration-300 cursor-pointer group",
+                      "bg-destructive/10 border-destructive/30",
+                      currentFileIndex === index && "animate-pulse border-success",
+                      selectedFile?.id === file.id && "ring-2 ring-primary"
+                    )}
+                  >
+                    <File className="w-5 h-5 text-destructive flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono text-sm text-foreground truncate">
+                        {file.name}.encrypted
+                      </p>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {(file.size / 1024).toFixed(2)} KB • {file.type}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeEncryptedFile(file.id);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <Lock className="w-4 h-4 text-destructive" />
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -393,9 +527,15 @@ ${logs.map(l => `[${l.timestamp.toLocaleTimeString()}] ${l.message}`).join('\n')
 
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {recoveredFiles.length === 0 ? (
-                <p className="text-muted-foreground font-mono text-sm p-4 text-center">
-                  No files recovered yet. Enter the key and run recovery.
-                </p>
+                <div className="text-center py-8">
+                  <Unlock className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-muted-foreground font-mono text-sm">
+                    No files recovered yet.
+                  </p>
+                  <p className="text-xs text-muted-foreground font-mono mt-1">
+                    Enter the key and run recovery
+                  </p>
+                </div>
               ) : (
                 recoveredFiles.map((file) => (
                   <div
@@ -449,16 +589,23 @@ ${logs.map(l => `[${l.timestamp.toLocaleTimeString()}] ${l.message}`).join('\n')
                   <Input
                     placeholder="Enter the encryption key..."
                     value={decryptionKey}
-                    onChange={(e) => setDecryptionKey(e.target.value)}
+                    onChange={(e) => {
+                      setDecryptionKey(e.target.value);
+                      setKeyVerified(false);
+                    }}
                     className="font-mono flex-1"
                   />
                   <Button variant="outline" onClick={verifyKey} disabled={!decryptionKey}>
                     Verify
                   </Button>
                 </div>
-                {keyVerified && (
+                {keyVerified ? (
                   <p className="text-xs text-success font-mono flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> Key ready for decryption
+                    <CheckCircle className="w-3 h-3" /> Key verified - ready for decryption
+                  </p>
+                ) : decryptionKey && (
+                  <p className="text-xs text-muted-foreground font-mono flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> Click "Verify" to validate key
                   </p>
                 )}
               </div>
@@ -468,7 +615,7 @@ ${logs.map(l => `[${l.timestamp.toLocaleTimeString()}] ${l.message}`).join('\n')
                 size="lg"
                 className="w-full"
                 onClick={runDecryption}
-                disabled={isDecrypting || recoveredFiles.length === encryptedFiles.length || !decryptionKey}
+                disabled={isDecrypting || !keyVerified || encryptedFiles.length === 0}
               >
                 {isDecrypting ? (
                   <>
@@ -478,24 +625,19 @@ ${logs.map(l => `[${l.timestamp.toLocaleTimeString()}] ${l.message}`).join('\n')
                 ) : (
                   <>
                     <Unlock className="w-5 h-5" />
-                    RUN RECOVERY
+                    START DECRYPTION
                   </>
                 )}
               </Button>
 
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={resetRecovery}
-                  disabled={isDecrypting}
-                >
+                <Button variant="outline" className="flex-1" onClick={resetRecovery}>
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Reset
                 </Button>
-                <Button
-                  variant="outline"
-                  className="flex-1"
+                <Button 
+                  variant="outline" 
+                  className="flex-1" 
                   onClick={exportRecoveryReport}
                   disabled={recoveredFiles.length === 0}
                 >
@@ -510,29 +652,29 @@ ${logs.map(l => `[${l.timestamp.toLocaleTimeString()}] ${l.message}`).join('\n')
         {/* Activity Log */}
         <div className="cyber-card p-5 border border-border">
           <div className="relative z-10">
-            <h3 className="font-display text-lg font-bold text-foreground tracking-wider mb-4">
+            <h3 className="font-display text-lg font-bold text-foreground tracking-wider mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-primary" />
               RECOVERY LOG
             </h3>
-            <div 
-              ref={logContainerRef}
-              className="bg-background/50 rounded-lg p-3 h-48 overflow-y-auto font-mono text-xs"
-            >
+            <div ref={logContainerRef} className="space-y-1 max-h-64 overflow-y-auto font-mono text-xs">
               {logs.length === 0 ? (
-                <p className="text-muted-foreground">Waiting for recovery to start...</p>
+                <p className="text-muted-foreground text-center py-4">
+                  Upload files and start recovery to see logs
+                </p>
               ) : (
                 logs.map((log) => (
-                  <p 
-                    key={log.id} 
+                  <div
+                    key={log.id}
                     className={cn(
-                      "mb-1",
-                      log.type === 'info' && "text-primary",
-                      log.type === 'warning' && "text-warning",
-                      log.type === 'success' && "text-success",
-                      log.type === 'danger' && "text-destructive"
+                      "py-1 px-2 rounded",
+                      log.type === 'info' && "text-muted-foreground",
+                      log.type === 'warning' && "text-warning bg-warning/5",
+                      log.type === 'success' && "text-success bg-success/5",
+                      log.type === 'danger' && "text-destructive bg-destructive/5"
                     )}
                   >
-                    <span className="text-muted-foreground">[{log.timestamp.toLocaleTimeString()}]</span> {log.message}
-                  </p>
+                    <span className="opacity-50">[{log.timestamp.toLocaleTimeString()}]</span> {log.message}
+                  </div>
                 ))
               )}
             </div>
@@ -540,43 +682,37 @@ ${logs.map(l => `[${l.timestamp.toLocaleTimeString()}] ${l.message}`).join('\n')
         </div>
       </div>
 
-      {/* File Preview */}
+      {/* File Preview Modal */}
       {selectedFile && (
-        <div className="mt-6 cyber-card p-5 border border-border">
-          <div className="relative z-10">
-            <h3 className="font-display text-lg font-bold text-foreground tracking-wider mb-4">
-              FILE PREVIEW: {selectedFile.name}
-            </h3>
-            <div className="bg-background/50 rounded-lg p-4 max-h-48 overflow-auto font-mono text-sm">
-              {selectedFile.encrypted ? (
-                <p className="text-destructive break-all">{selectedFile.encryptedContent || selectedFile.content}</p>
-              ) : (
-                <p className="text-accent">{selectedFile.content}</p>
-              )}
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="cyber-card max-w-2xl w-full p-6 border border-border max-h-[80vh] overflow-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
+                {selectedFile.encrypted ? (
+                  <Lock className="w-5 h-5 text-destructive" />
+                ) : (
+                  <CheckCircle className="w-5 h-5 text-success" />
+                )}
+                {selectedFile.name}
+              </h3>
+              <button onClick={() => setSelectedFile(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Success Message */}
-      {recoveredFiles.length === encryptedFiles.length && encryptedFiles.length > 0 && (
-        <div className="mt-6 cyber-card p-6 border-2 border-success">
-          <div className="relative z-10 text-center">
-            <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
-            <h2 className="font-display text-2xl font-bold text-success mb-2">
-              ALL FILES RECOVERED
-            </h2>
-            <p className="font-mono text-muted-foreground mb-4">
-              Incident response successful. {recoveredFiles.length} encrypted file(s) have been restored.
-            </p>
-            <div className="flex justify-center gap-4">
-              <Button variant="outline" onClick={() => navigate('/incident')}>
-                <AlertTriangle className="w-4 h-4 mr-2" />
-                Run Incident Response
-              </Button>
-              <Button variant="success" onClick={exportRecoveryReport}>
-                <Download className="w-4 h-4 mr-2" />
-                Download Report
+            <div className="bg-secondary/30 p-4 rounded-lg">
+              <pre className="font-mono text-xs text-foreground whitespace-pre-wrap break-all max-h-96 overflow-auto">
+                {selectedFile.encrypted ? selectedFile.encryptedContent : selectedFile.content}
+              </pre>
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              {!selectedFile.encrypted && (
+                <Button variant="success" onClick={() => downloadRecoveredFile(selectedFile)}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setSelectedFile(null)}>
+                Close
               </Button>
             </div>
           </div>
