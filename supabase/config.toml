@@ -2,3 +2,15 @@ project_id = "tnnglbdsxuqchechqwvz"
 
 [functions.ai-assistant]
 verify_jwt = false
+
+[functions.send-phishing-email]
+verify_jwt = true
+
+[functions.track-email]
+verify_jwt = false
+
+[functions.port-scanner]
+verify_jwt = true
+
+[functions.generate-phishing-template]
+verify_jwt = false
