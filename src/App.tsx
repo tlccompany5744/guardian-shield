@@ -13,6 +13,8 @@ import IncidentPage from "./pages/IncidentPage";
 import AssistantPage from "./pages/AssistantPage";
 import ThreatIntelPage from "./pages/ThreatIntelPage";
 import LearningPage from "./pages/LearningPage";
+import PhishingSimulatorPage from "./pages/PhishingSimulatorPage";
+import PortScannerPage from "./pages/PortScannerPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +36,8 @@ const App = () => (
             <Route path="/assistant" element={<AssistantPage />} />
             <Route path="/threat-intel" element={<ThreatIntelPage />} />
             <Route path="/learning" element={<LearningPage />} />
+            <Route path="/phishing-simulator" element={<PhishingSimulatorPage />} />
+            <Route path="/port-scanner" element={<PortScannerPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

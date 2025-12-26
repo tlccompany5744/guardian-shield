@@ -16,6 +16,8 @@ import {
   FileKey,
   Search,
   ClipboardList,
+  Fish,
+  Radar,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -26,6 +28,8 @@ const menuItems = [
   { icon: Unlock, label: 'Decrypt & Recover', path: '/decrypt' },
   { icon: AlertTriangle, label: 'Detection Monitor', path: '/detection' },
   { icon: ClipboardList, label: 'Incident Response', path: '/incident' },
+  { icon: Fish, label: 'Phishing Simulator', path: '/phishing-simulator' },
+  { icon: Radar, label: 'Port Scanner', path: '/port-scanner' },
   { icon: MessageSquare, label: 'AI Assistant', path: '/assistant' },
   { icon: Search, label: 'Threat Intel', path: '/threat-intel' },
   { icon: BookOpen, label: 'Learning Lab', path: '/learning' },
