@@ -75,11 +75,13 @@ serve(async (req: Request): Promise<Response> => {
       </div>
     `;
 
+    // Use Resend's default domain for testing (user's custom domain needs verification)
     const emailResponse = await resend.emails.send({
-      from: `${senderName} <${senderEmail}>`,
+      from: `${senderName} <onboarding@resend.dev>`,
       to: [targetEmail],
       subject: `[SECURITY TRAINING] ${subject}`,
       html: emailHtml,
+      reply_to: senderEmail,
     });
 
     console.log("Email sent successfully:", emailResponse);
