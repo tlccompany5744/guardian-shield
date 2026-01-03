@@ -684,7 +684,14 @@ ${logs.map(l => `[${l.timestamp.toLocaleTimeString()}] ${l.message}`).join('\n')
 
       {/* File Preview Modal */}
       {selectedFile && (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div 
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setSelectedFile(null);
+            }
+          }}
+        >
           <div className="cyber-card max-w-2xl w-full p-6 border border-border max-h-[80vh] overflow-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
@@ -695,9 +702,14 @@ ${logs.map(l => `[${l.timestamp.toLocaleTimeString()}] ${l.message}`).join('\n')
                 )}
                 {selectedFile.name}
               </h3>
-              <button onClick={() => setSelectedFile(null)} className="text-muted-foreground hover:text-foreground">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setSelectedFile(null)}
+                className="h-8 w-8 p-0"
+              >
                 <X className="w-5 h-5" />
-              </button>
+              </Button>
             </div>
             <div className="bg-secondary/30 p-4 rounded-lg">
               <pre className="font-mono text-xs text-foreground whitespace-pre-wrap break-all max-h-96 overflow-auto">
