@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Lock, FileText, AlertTriangle, Play, Square, Trash2, Plus, Shield, Upload, File, Eye } from 'lucide-react';
+import { Lock, FileText, AlertTriangle, Play, Square, Trash2, Plus, Shield, Upload, File, Eye, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -453,9 +453,19 @@ const EncryptPage = () => {
           {selectedFile && (
             <div className="cyber-card p-5 border border-border">
               <div className="relative z-10">
-                <h3 className="font-display text-lg font-bold text-foreground tracking-wider mb-4">
-                  FILE PREVIEW: {selectedFile.name}
-                </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-display text-lg font-bold text-foreground tracking-wider">
+                    FILE PREVIEW: {selectedFile.name}
+                  </h3>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setSelectedFile(null)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
                 <div className="bg-background/50 rounded-lg p-3 max-h-32 overflow-auto font-mono text-xs">
                   {selectedFile.encrypted ? (
                     <p className="text-destructive break-all">{selectedFile.encryptedContent?.substring(0, 500)}...</p>
@@ -463,6 +473,14 @@ const EncryptPage = () => {
                     <p className="text-accent">{selectedFile.content.substring(0, 500)}</p>
                   )}
                 </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setSelectedFile(null)}
+                  className="mt-3"
+                >
+                  Close Preview
+                </Button>
               </div>
             </div>
           )}

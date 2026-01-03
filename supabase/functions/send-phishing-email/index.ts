@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import { Resend } from "https://esm.sh/resend@4.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -128,7 +128,7 @@ serve(async (req: Request): Promise<Response> => {
       to: [targetEmail],
       subject: `[SECURITY TRAINING] ${subject}`,
       html: emailHtml,
-      reply_to: senderEmail,
+      replyTo: senderEmail,
     });
 
     console.log("✅ Email sent successfully:", JSON.stringify(emailResponse));
