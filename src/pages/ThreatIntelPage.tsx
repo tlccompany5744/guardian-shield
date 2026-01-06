@@ -255,7 +255,16 @@ const ThreatIntelPage = () => {
                   </div>
 
                   <div className="pt-4 border-t border-border">
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        toast.info(`Full report for ${selectedThreat.name}`, {
+                          description: `Threat Type: ${selectedThreat.type} | Severity: ${selectedThreat.severity.toUpperCase()}. This is a simulation database - in production, this would link to MITRE ATT&CK or similar threat intelligence sources.`,
+                          duration: 8000,
+                        });
+                      }}
+                    >
                       <ExternalLink className="w-4 h-4 mr-2" />
                       View Full Report
                     </Button>
